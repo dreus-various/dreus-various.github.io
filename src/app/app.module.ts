@@ -33,8 +33,9 @@ const routes: Routes = [
     HttpClientModule,
     MatButtonModule
   ],
-  providers: [CookieService,
-    // {provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true}
+  providers: [
+    CookieService,
+    {provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true}
   ],
   bootstrap: [AppComponent]
 })
