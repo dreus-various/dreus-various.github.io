@@ -27,7 +27,7 @@ export class TokenComponent implements OnInit {
         body.set('grant_type', 'authorization_code');
         body.set('code', code);
         body.set('redirect_uri', 'http://localhost:4200/token');
-        return this.http.post<{ access_token: string, expires_in: number }>('https://accounts.spotify.com/api/token', body.toString(), {
+        return this.http.post<{ access_token: string, expires_in: number }>('https://dreus-various.github.io/token', body.toString(), {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
             'Authorization': `Basic ${btoa('1e72c0f53ed2437e8d9a0ff6a7492811:20cc6a6d0cc34fc4ba4356b533c2d871')}`
