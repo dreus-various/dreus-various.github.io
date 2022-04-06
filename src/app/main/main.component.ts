@@ -11,6 +11,7 @@ import {firstValueFrom, from, map, of, Subject, switchMap} from "rxjs";
 })
 export class MainComponent implements OnInit {
 
+  public loading: boolean = false;
   private total$: Subject<{ total: number, playlistId: string }> = new Subject<{ total: number; playlistId: string }>();
 
   constructor(private cookie: CookieService, private router: Router, private spotifyService: SpotifyService) {
@@ -48,6 +49,8 @@ export class MainComponent implements OnInit {
         index += step;
         nextBatch = this.getNext(index, step, currentTracksArray);
       }
+
+      this.loading = false;
     })
   }
 
@@ -56,6 +59,7 @@ export class MainComponent implements OnInit {
   }
 
   public generatePlaylist() {
+    this.loading = true;
     this.spotifyService.clearCache();
 
     this.spotifyService.getPlaylistByName('Dreus recommendation playlist').pipe(

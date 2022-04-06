@@ -11,6 +11,7 @@ import {CookieService} from "ngx-cookie-service";
 import {ErrorInterceptor} from "./intereceptor/ErrorInterceptor";
 import {MainComponent} from "./main/main.component";
 import {MatButtonModule} from "@angular/material/button";
+import {MatProgressSpinnerModule} from "@angular/material/progress-spinner";
 
 const routes: Routes = [
   {path: '', redirectTo: '/auth', pathMatch: 'full'},
@@ -31,7 +32,8 @@ const routes: Routes = [
     RouterModule.forRoot(routes),
     BrowserAnimationsModule,
     HttpClientModule,
-    MatButtonModule
+    MatButtonModule,
+    MatProgressSpinnerModule
   ],
   providers: [
     CookieService,
