@@ -116,31 +116,36 @@ export class SpotifyService {
     return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}});
   }
 
-  public processTrack(trackIndex: number): Observable<Set<string>> {
-    return of(this.tracksCache[trackIndex]).pipe(
-      switchMap(trackInfo => !!trackInfo ? of(trackInfo) : this.getUserTracks(trackIndex, 50).pipe(
-        tap(res => res.items.forEach((item: any, index: number) => this.tracksCache[trackIndex + index] = {
-          id: item.track.id,
-          uri: item.track.uri
-        })),
-        map(res => ({id: res.items[0].track.id, uri: res.items[0].track.uri}))
-      )),
-      switchMap(trackInfo => this.getRecommendations(trackInfo.id).pipe(
-        map(res => ({recommendations: res, trackInfo}))
-      )),
-      map((nextItem: any) => {
-        const size = nextItem.recommendations.tracks.length;
-        const numberOfTracksToTake = Math.ceil(size * 0.4);
-        const randomUris = this.getRandomElements(numberOfTracksToTake, nextItem.recommendations.tracks);
-        randomUris.add(nextItem.trackInfo.uri)
-        return randomUris;
-      })
-    )
+  public async processTrack(trackIndices: number[]) {
+    const userTracks = [];
+    for (let trackIndex of trackIndices) {
+      const resolved = await this.resolveWithCache(trackIndex);
+      userTracks.push(resolved);
+    }
+    const recommendations = await firstValueFrom(this.getRecommendations(userTracks.map(ut => ut.id)))
+
+    const size = recommendations.tracks.length;
+    const numberOfTracksToTake = Math.ceil(size * 0.4);
+    const randomUris = this.getRandomElements(numberOfTracksToTake, recommendations.tracks);
+
+    userTracks.forEach(ut => randomUris.add(ut.uri));
+    return randomUris;
   }
 
-  public getRecommendations(track: string) {
+  private async resolveWithCache(trackIndex: number): Promise<{ id: string; uri: string }> {
+    if (!this.tracksCache[trackIndex]) {
+      const userTracks = await firstValueFrom(this.getUserTracks(trackIndex, 50));
+      userTracks.items.forEach((item: any, index: number) => this.tracksCache[trackIndex + index] = {
+        id: item.track.id,
+        uri: item.track.uri
+      });
+    }
+    return this.tracksCache[trackIndex];
+  }
+
+  public getRecommendations(track: string[]): Observable<any> {
     const token = this.cookieService.get('spotify_token');
-    const url = `https://api.spotify.com/v1/recommendations/?seed_tracks=${track}&market=NL`;
+    const url = `https://api.spotify.com/v1/recommendations/?seed_tracks=${track.join(',')}&market=NL`;
 
     return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}});
   }

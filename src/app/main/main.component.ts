@@ -11,8 +11,9 @@ import {firstValueFrom, from, map, of, Subject, switchMap} from "rxjs";
 })
 export class MainComponent implements OnInit {
 
+  private playlistName = 'Dreus radio playlist';
+
   public loading: boolean = false;
-  private total$: Subject<{ total: number, playlistId: string }> = new Subject<{ total: number; playlistId: string }>();
 
   constructor(private cookie: CookieService, private router: Router, private spotifyService: SpotifyService) {
   }
@@ -25,21 +26,48 @@ export class MainComponent implements OnInit {
     this.spotifyService.getUserInfo().subscribe(res => {
       this.spotifyService.setUserId(res.id)
     });
+  }
 
-    this.total$.subscribe(async total => {
+  private getNext(offset: number, limit: number, arr: string[]): string[] {
+    return arr.slice(offset, offset + limit);
+  }
+
+  public generatePlaylist() {
+    this.loading = true;
+    this.spotifyService.clearCache();
+
+    this.spotifyService.getPlaylistByName(this.playlistName).pipe(
+      switchMap(res => {
+        if (!res) {
+          return this.spotifyService.saveNewPlaylist(this.playlistName, '')
+        }
+        return of(res);
+      }),
+      switchMap(playlistId => from(this.spotifyService.deleteAllSong(playlistId))),
+      switchMap(playlistId => this.spotifyService.getTotalUserTracks().pipe(
+        map(total => ({total, playlistId}))
+      )),
+    ).subscribe(async total => {
+      let currentNumberForSeed = 1;
+
       const currentTracks = new Set<string>();
       let currentNumber = 0;
 
-      let randomNumber = this.spotifyService.getRandomNumber(0, total.total - 1);
-      while (currentTracks.size <= 200 || currentNumber <= total.total * 0.15) {
-        const uris = await firstValueFrom(this.spotifyService.processTrack(randomNumber));
+      while (currentTracks.size <= 300 && currentNumber <= total.total * 0.2) {
+        const indices = [];
+        for (let i = 0; i < currentNumberForSeed; i++) {
+          indices.push(this.spotifyService.getRandomNumber(0, total.total - 1));
+        }
+
+        const uris = await this.spotifyService.processTrack(indices);
         uris.forEach(uri => currentTracks.add(uri));
         currentNumber++;
-        randomNumber = this.spotifyService.getRandomNumber(0, total.total - 1);
+        currentNumberForSeed = this.getNextNumberOfTracks(currentNumberForSeed);
       }
       const currentTracksArray = Array.from(currentTracks);
       this.shuffleArray(currentTracksArray);
 
+      console.log(`Size of tracks to add ${currentTracksArray.length}`)
       let index = 0;
       const step = 100;
       let nextBatch = this.getNext(index, step, currentTracksArray);
@@ -51,30 +79,6 @@ export class MainComponent implements OnInit {
       }
 
       this.loading = false;
-    })
-  }
-
-  private getNext(offset: number, limit: number, arr: string[]): string[] {
-    return arr.slice(offset, offset + limit);
-  }
-
-  public generatePlaylist() {
-    this.loading = true;
-    this.spotifyService.clearCache();
-
-    this.spotifyService.getPlaylistByName('Dreus recommendation playlist').pipe(
-      switchMap(res => {
-        if (!res) {
-          return this.spotifyService.saveNewPlaylist('Dreus recommendation playlist', 'Recommendations for you')
-        }
-        return of(res);
-      }),
-      switchMap(playlistId => from(this.spotifyService.deleteAllSong(playlistId))),
-      switchMap(playlistId => this.spotifyService.getTotalUserTracks().pipe(
-        map(total => ({total, playlistId}))
-      )),
-    ).subscribe(res => {
-      this.total$.next(res);
     });
   }
 
@@ -85,5 +89,12 @@ export class MainComponent implements OnInit {
       array[i] = array[j];
       array[j] = temp;
     }
+  }
+
+  private getNextNumberOfTracks(num: number): number {
+    if (num >= 3) {
+      return 1;
+    }
+    return num + 1;
   }
 }
