@@ -1,6 +1,6 @@
 import {Injectable} from "@angular/core";
 import {CookieService} from "ngx-cookie-service";
-import {delay, EMPTY, expand, firstValueFrom, map, Observable, of, switchMap, tap} from "rxjs";
+import {firstValueFrom, map, Observable, of} from "rxjs";
 import {HttpClient} from "@angular/common/http";
 
 @Injectable({providedIn: 'root'})
