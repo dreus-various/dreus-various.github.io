@@ -48,12 +48,12 @@ export class MainComponent implements OnInit {
         map(total => ({total, playlistId}))
       )),
     ).subscribe(async total => {
-      let currentNumberForSeed = 1;
+      let currentNumberForSeed = 2;
 
       const currentTracks = new Set<string>();
       let currentNumber = 0;
 
-      while (currentTracks.size <= 300 && currentNumber <= total.total * 0.2) {
+      while (currentTracks.size <= 400 && currentNumber <= total.total * 0.2) {
         const indices = [];
         for (let i = 0; i < currentNumberForSeed; i++) {
           indices.push(this.spotifyService.getRandomNumber(0, total.total - 1));
@@ -64,8 +64,8 @@ export class MainComponent implements OnInit {
         currentNumber++;
         currentNumberForSeed = this.getNextNumberOfTracks(currentNumberForSeed);
       }
-      const currentTracksArray = Array.from(currentTracks);
-      this.shuffleArray(currentTracksArray);
+      let currentTracksArray = Array.from(currentTracks);
+      currentTracksArray = this.shuffle(currentTracksArray);
 
       console.log(`Size of tracks to add ${currentTracksArray.length}`)
       let index = 0;
@@ -82,18 +82,20 @@ export class MainComponent implements OnInit {
     });
   }
 
-  private shuffleArray = (array: any[]) => {
+  private shuffle(array: any[]): any[] {
     for (let i = array.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      const temp = array[i];
-      array[i] = array[j];
-      array[j] = temp;
+      [array[i], array[j]] = [array[j], array[i]];
     }
+    return array;
   }
 
   private getNextNumberOfTracks(num: number): number {
-    if (num >= 3) {
-      return 1;
+    if (num >= 4) {
+      return 2;
+    }
+    if (num < 2) {
+      return 2;
     }
     return num + 1;
   }
