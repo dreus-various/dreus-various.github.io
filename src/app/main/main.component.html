@@ -2,4 +2,15 @@
 <ng-container *ngIf="loading">
   <mat-spinner style="width: 200px; height: 200px; margin-left: 20px"></mat-spinner>
 </ng-container>
-
+<div style="margin-top: 20px; margin-left: 20px">
+  <label id="example-radio-group-label">Настроение плейлиста</label>
+  <p></p>
+  <mat-radio-group
+    aria-labelledby="example-radio-group-label"
+    class="example-radio-group"
+    [(ngModel)]="selectedMood">
+    <mat-radio-button class="example-radio-button" style="display: flex;" *ngFor="let mood of moods" [value]="mood">
+      <div style="margin-top: 5px">{{mood}}</div>
+    </mat-radio-button>
+  </mat-radio-group>
+</div>

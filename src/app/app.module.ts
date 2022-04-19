@@ -12,6 +12,8 @@ import {ErrorInterceptor} from "./intereceptor/ErrorInterceptor";
 import {MainComponent} from "./main/main.component";
 import {MatButtonModule} from "@angular/material/button";
 import {MatProgressSpinnerModule} from "@angular/material/progress-spinner";
+import {MatRadioModule} from "@angular/material/radio";
+import {FormsModule} from "@angular/forms";
 
 const routes: Routes = [
   {path: '', redirectTo: '/auth', pathMatch: 'full'},
@@ -33,7 +35,9 @@ const routes: Routes = [
     BrowserAnimationsModule,
     HttpClientModule,
     MatButtonModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatRadioModule,
+    FormsModule
   ],
   providers: [
     CookieService,

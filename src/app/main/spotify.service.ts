@@ -2,6 +2,8 @@ import {Injectable} from "@angular/core";
 import {CookieService} from "ngx-cookie-service";
 import {firstValueFrom, map, Observable, of} from "rxjs";
 import {HttpClient} from "@angular/common/http";
+import {mood} from "../model/mood.type";
+import {MoodService} from "./mood.service";
 
 @Injectable({providedIn: 'root'})
 export class SpotifyService {
@@ -10,7 +12,7 @@ export class SpotifyService {
 
   private tracksCache: { id: string, uri: string }[] = [];
 
-  constructor(private cookieService: CookieService, private http: HttpClient) {
+  constructor(private cookieService: CookieService, private http: HttpClient, private moodService: MoodService) {
   }
 
   public clearCache() {
@@ -116,15 +118,23 @@ export class SpotifyService {
     return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}});
   }
 
-  public async processTrack(trackIndices: number[]) {
+  public async processTrack(trackIndices: number[], mood: mood) {
     const userTracks = [];
     for (let trackIndex of trackIndices) {
       const resolved = await this.resolveWithCache(trackIndex);
       userTracks.push(resolved);
     }
-    const recommendations = await firstValueFrom(this.getRecommendations(userTracks.map(ut => ut.id)))
-
-    const size = recommendations.tracks.length;
+    const recommendations = await firstValueFrom(this.getRecommendations(userTracks.map(ut => ut.id)));
+    let tracks = recommendations.tracks;
+    if (mood !== 'Всё подряд') {
+      const songsInfo = await firstValueFrom(this.getSongsInfo(recommendations.tracks.map((track: any) => track.id)));
+      tracks = recommendations.tracks.map((t: any, i: number) => ({
+        ...t,
+        info: songsInfo.audio_features.find((audioFeature: { id: string }) => t.id === audioFeature.id)
+      }));
+      tracks = this.moodService.filterTracksByMood(tracks, mood);
+    }
+    const size = tracks.length;
     const numberOfTracksToTake = Math.ceil(size * 0.4);
     const randomUris = this.getRandomElements(numberOfTracksToTake, recommendations.tracks);
 
@@ -148,6 +158,13 @@ export class SpotifyService {
     const url = `https://api.spotify.com/v1/recommendations/?seed_tracks=${track.join(',')}&market=NL`;
 
     return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}});
+  }
+
+  public getSongsInfo(trackIds: string[]): Observable<any> {
+    const token = this.cookieService.get('spotify_token');
+    const url = `https://api.spotify.com/v1/audio-features?ids=${trackIds.join(',')}`;
+
+    return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}})
   }
 
   public getRandomNumber(min: number, max: number): number {

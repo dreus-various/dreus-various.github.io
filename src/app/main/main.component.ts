@@ -3,6 +3,7 @@ import {CookieService} from "ngx-cookie-service";
 import {Router} from "@angular/router";
 import {SpotifyService} from "./spotify.service";
 import {firstValueFrom, from, map, of, Subject, switchMap} from "rxjs";
+import {mood} from "../model/mood.type";
 
 @Component({
   selector: 'main',
@@ -14,6 +15,8 @@ export class MainComponent implements OnInit {
   private playlistName = 'Dreus radio playlist';
 
   public loading: boolean = false;
+  public moods: mood[] = ['Всё подряд', 'Энергичное', 'Спокойное', 'Весёлое', 'Грустное'];
+  public selectedMood: mood = 'Всё подряд';
 
   constructor(private cookie: CookieService, private router: Router, private spotifyService: SpotifyService) {
   }
@@ -59,7 +62,7 @@ export class MainComponent implements OnInit {
           indices.push(this.spotifyService.getRandomNumber(0, total.total - 1));
         }
 
-        const uris = await this.spotifyService.processTrack(indices);
+        const uris = await this.spotifyService.processTrack(indices, this.selectedMood);
         uris.forEach(uri => currentTracks.add(uri));
         currentNumber++;
         currentNumberForSeed = this.getNextNumberOfTracks(currentNumberForSeed);
