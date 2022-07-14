@@ -2,7 +2,7 @@ import {Component, OnInit} from "@angular/core";
 import {CookieService} from "ngx-cookie-service";
 import {Router} from "@angular/router";
 import {SpotifyService} from "./spotify.service";
-import {firstValueFrom, from, map, of, Subject, switchMap} from "rxjs";
+import {firstValueFrom, from, map, of, switchMap} from "rxjs";
 
 @Component({
   selector: 'main',
@@ -14,6 +14,16 @@ export class MainComponent implements OnInit {
   private playlistName = 'Dreus radio playlist';
 
   public loading: boolean = false;
+  energyLevel: EnergyLevelType = 'any';
+
+  private energyLevelMap = {
+    'super-low-energy': {min: 0, max: 0.3},
+    'low-energy': {min: 0.2, max: 0.5},
+    'medium-energy': {min: 0.4, max: 0.7},
+    'high-energy': {min: 0.6, max: 0.9},
+    'super-high-energy': {min: 0.7, max: 1},
+    'any': {min: 0, max: 1}
+  }
 
   constructor(private cookie: CookieService, private router: Router, private spotifyService: SpotifyService) {
   }
@@ -32,14 +42,21 @@ export class MainComponent implements OnInit {
     return arr.slice(offset, offset + limit);
   }
 
-  public generatePlaylist() {
+  public async generatePlaylist() {
     this.loading = true;
     this.spotifyService.clearCache();
 
-    this.spotifyService.getPlaylistByName(this.playlistName).pipe(
+    this.generatePlaylistForMood(this.energyLevel);
+  }
+
+  private generatePlaylistForMood(energyLevelType: EnergyLevelType) {
+    const energyLevel = this.energyLevelMap[energyLevelType];
+    const playlistName = this.playlistName + '-' + this.energyLevel;
+
+    this.spotifyService.getPlaylistByName(playlistName).pipe(
       switchMap(res => {
         if (!res) {
-          return this.spotifyService.saveNewPlaylist(this.playlistName, '')
+          return this.spotifyService.saveNewPlaylist(playlistName, '')
         }
         return of(res);
       }),
@@ -53,13 +70,13 @@ export class MainComponent implements OnInit {
       const currentTracks = new Set<string>();
       let currentNumber = 0;
 
-      while (currentTracks.size <= 400 && currentNumber <= total.total * 0.2) {
+      while (currentTracks.size <= 200 && currentNumber <= total.total * 0.2) {
         const indices = [];
         for (let i = 0; i < currentNumberForSeed; i++) {
           indices.push(this.spotifyService.getRandomNumber(0, total.total - 1));
         }
 
-        const uris = await this.spotifyService.processTrack(indices);
+        const uris = await this.spotifyService.processTrack(indices, energyLevel.min, energyLevel.max);
         uris.forEach(uri => currentTracks.add(uri));
         currentNumber++;
         currentNumberForSeed = this.getNextNumberOfTracks(currentNumberForSeed);
@@ -79,7 +96,7 @@ export class MainComponent implements OnInit {
       }
 
       this.loading = false;
-    });
+    })
   }
 
   private shuffle(array: any[]): any[] {
@@ -100,3 +117,11 @@ export class MainComponent implements OnInit {
     return num + 1;
   }
 }
+
+type EnergyLevelType =
+  'super-low-energy'
+  | 'low-energy'
+  | 'medium-energy'
+  | 'high-energy'
+  | 'super-high-energy'
+  | 'any';

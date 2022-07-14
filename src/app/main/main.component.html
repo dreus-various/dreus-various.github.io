@@ -1,5 +1,18 @@
-<button style="margin-left: 20px" color="primary" mat-stroked-button (click)="generatePlaylist()">Generate your playlist!</button>
-<ng-container *ngIf="loading">
-  <mat-spinner style="width: 200px; height: 200px; margin-left: 20px"></mat-spinner>
-</ng-container>
+<div style="padding: 40px">
+  <span>Energy</span>
+  <div style="width: 300px; margin-top: 20px; margin-bottom: 20px">
+    <mat-button-toggle-group [(ngModel)]="energyLevel" name="energyLevel" aria-label="Energy level">
+      <mat-button-toggle value="super-low-energy">Super calm</mat-button-toggle>
+      <mat-button-toggle value="low-energy">Calm</mat-button-toggle>
+      <mat-button-toggle value="medium-energy">Medium energy</mat-button-toggle>
+      <mat-button-toggle value="high-energy">Energetic</mat-button-toggle>
+      <mat-button-toggle value="super-high-energy">Super energetic</mat-button-toggle>
+      <mat-button-toggle value="any" checked>Any</mat-button-toggle>
+    </mat-button-toggle-group>
+  </div>
+  <button style="margin-left: 20px" color="primary" mat-stroked-button (click)="generatePlaylist()">Generate your playlist!</button>
+  <ng-container *ngIf="loading">
+    <mat-spinner style="width: 200px; height: 200px; margin-left: 20px"></mat-spinner>
+  </ng-container>
+</div>
 
