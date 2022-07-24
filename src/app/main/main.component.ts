@@ -14,15 +14,14 @@ export class MainComponent implements OnInit {
   private playlistName = 'Dreus radio playlist';
 
   public loading: boolean = false;
-  energyLevel: EnergyLevelType = 'any';
+  energyLevel: EnergyLevelType[] = ['medium-energy'];
 
   private energyLevelMap = {
-    'super-low-energy': {min: 0, max: 0.3},
-    'low-energy': {min: 0.2, max: 0.5},
-    'medium-energy': {min: 0.4, max: 0.7},
-    'high-energy': {min: 0.6, max: 0.9},
-    'super-high-energy': {min: 0.7, max: 1},
-    'any': {min: 0, max: 1}
+    'super-low-energy': {min: 0, max: 0.2},
+    'low-energy': {min: 0.2, max: 0.4},
+    'medium-energy': {min: 0.4, max: 0.6},
+    'high-energy': {min: 0.6, max: 0.8},
+    'super-high-energy': {min: 0.8, max: 1},
   }
 
   constructor(private cookie: CookieService, private router: Router, private spotifyService: SpotifyService) {
@@ -49,20 +48,34 @@ export class MainComponent implements OnInit {
     this.generatePlaylistForMood(this.energyLevel);
   }
 
-  private generatePlaylistForMood(energyLevelType: EnergyLevelType) {
-    const energyLevel = this.energyLevelMap[energyLevelType];
-    const playlistName = this.playlistName + '-' + this.energyLevel;
+  private generatePlaylistForMood(energyLevelType: EnergyLevelType[]) {
+    if (energyLevelType.length === 0) {
+      energyLevelType.push('medium-energy');
+    }
 
-    this.spotifyService.getPlaylistByName(playlistName).pipe(
+    let min = 1;
+    let max = 0;
+    for (let energyLevelTypeElement of energyLevelType) {
+      let energyLevelMapElement = this.energyLevelMap[energyLevelTypeElement];
+
+      if (energyLevelMapElement.min < min) {
+        min = energyLevelMapElement.min;
+      }
+      if (energyLevelMapElement.max > max) {
+        max = energyLevelMapElement.max;
+      }
+    }
+
+    this.spotifyService.getPlaylistByName(this.playlistName).pipe(
       switchMap(res => {
         if (!res) {
-          return this.spotifyService.saveNewPlaylist(playlistName, '')
+          return this.spotifyService.saveNewPlaylist(this.playlistName, '')
         }
         return of(res);
       }),
-      switchMap(playlistId => from(this.spotifyService.deleteAllSong(playlistId))),
-      switchMap(playlistId => this.spotifyService.getTotalUserTracks().pipe(
-        map(total => ({total, playlistId}))
+      switchMap(playlist => from(this.spotifyService.deleteAllSong(playlist))),
+      switchMap((playlist: any) => this.spotifyService.getTotalUserTracks().pipe(
+        map(total => ({total, playlist}))
       )),
     ).subscribe(async total => {
       let currentNumberForSeed = 2;
@@ -70,13 +83,13 @@ export class MainComponent implements OnInit {
       const currentTracks = new Set<string>();
       let currentNumber = 0;
 
-      while (currentTracks.size <= 200 && currentNumber <= total.total * 0.2) {
+      while (currentTracks.size <= 400 && currentNumber <= total.total * 0.2) {
         const indices = [];
         for (let i = 0; i < currentNumberForSeed; i++) {
           indices.push(this.spotifyService.getRandomNumber(0, total.total - 1));
         }
 
-        const uris = await this.spotifyService.processTrack(indices, energyLevel.min, energyLevel.max);
+        const uris = await this.spotifyService.processTrack(indices, min, max);
         uris.forEach(uri => currentTracks.add(uri));
         currentNumber++;
         currentNumberForSeed = this.getNextNumberOfTracks(currentNumberForSeed);
@@ -90,10 +103,12 @@ export class MainComponent implements OnInit {
       let nextBatch = this.getNext(index, step, currentTracksArray);
 
       while (nextBatch.length !== 0) {
-        await firstValueFrom(this.spotifyService.addToPlaylist(total.playlistId, nextBatch));
+        await firstValueFrom(this.spotifyService.addToPlaylist(total.playlist.id, nextBatch));
         index += step;
         nextBatch = this.getNext(index, step, currentTracksArray);
       }
+
+      // setTimeout(async () => await firstValueFrom(this.spotifyService.addPlayback(total.playlist.uri)), 500);
 
       this.loading = false;
     })
@@ -123,5 +138,4 @@ type EnergyLevelType =
   | 'low-energy'
   | 'medium-energy'
   | 'high-energy'
-  | 'super-high-energy'
-  | 'any';
+  | 'super-high-energy';

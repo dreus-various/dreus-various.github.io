@@ -1,6 +1,6 @@
 import {Injectable} from "@angular/core";
 import {CookieService} from "ngx-cookie-service";
-import {catchError, firstValueFrom, map, Observable, of} from "rxjs";
+import {catchError, delay, firstValueFrom, map, Observable, of} from "rxjs";
 import {HttpClient} from "@angular/common/http";
 
 @Injectable({providedIn: 'root'})
@@ -17,11 +17,11 @@ export class SpotifyService {
     this.tracksCache = [];
   }
 
-  public getPlaylistByName(name: string): Observable<string | null> {
+  public getPlaylistByName(name: string): Observable<any | null> {
     return this.getPlaylists().pipe(
       map(res => res.items),
       map((items: any[]) => items.filter(item => item.name === name)),
-      map(items => items.length > 0 ? items[0].id : null)
+      map(items => items.length > 0 ? items[0] : null)
     )
   }
 
@@ -80,13 +80,13 @@ export class SpotifyService {
     )
   }
 
-  public async deleteAllSong(id: string): Promise<string> {
-    let playlist: any = await firstValueFrom(this.getPlaylist(id));
-    while (playlist.tracks.items.length > 0) {
-      await firstValueFrom(this.deleteTracksFromPlaylist(id, playlist.tracks.items.map((item: any) => ({uri: item.track.uri}))));
-      playlist = await firstValueFrom(this.getPlaylist(id));
+  public async deleteAllSong(playlist: any): Promise<any> {
+    let playlistInfo: any = await firstValueFrom(this.getPlaylist(playlist.id));
+    while (playlistInfo.tracks.items.length > 0) {
+      await firstValueFrom(this.deleteTracksFromPlaylist(playlist.id, playlistInfo.tracks.items.map((item: any) => ({uri: item.track.uri}))));
+      playlistInfo = await firstValueFrom(this.getPlaylist(playlist.id));
     }
-    return id;
+    return playlist;
   }
 
   public deleteTracksFromPlaylist(id: string, songs: { uri: string }[]) {
@@ -114,6 +114,19 @@ export class SpotifyService {
     const url = `https://api.spotify.com/v1/me/tracks?offset=${offset}&limit=${limit}&market=NL`;
 
     return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}});
+  }
+
+  public addPlayback(playlistUri: string): Observable<any> {
+    const token = this.cookieService.get('spotify_token');
+    const url = `https://api.spotify.com/v1/me/player/play`;
+
+    return this.http.put(url, {
+      context_uri: playlistUri,
+      offset: {
+        position: 0
+      },
+      position_ms: 0
+    }, {headers: {Authorization: 'Bearer ' + token}});
   }
 
   public async processTrack(trackIndices: number[], energyMin: number = 0, energyMax: number = 100) {
@@ -177,7 +190,10 @@ export class SpotifyService {
     const token = this.cookieService.get('spotify_token');
     const url = `https://api.spotify.com/v1/audio-features/${trackId}`;
 
-    return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}});
+    return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}})
+      .pipe(
+        delay(100)
+      )
   }
 
   public getRandomNumber(min: number, max: number): number {
