@@ -10,6 +10,10 @@
     </mat-button-toggle-group>
   </div>
   <button style="margin-left: 20px" color="primary" mat-stroked-button (click)="generatePlaylist()">Generate your playlist!</button>
+  <button style="margin-left: 20px" color="primary" mat-stroked-button (click)="combineDailyMixes()">Combine your daily mixes into one!</button>
+  <ng-container *ngIf="loading">
+    {{loadingPercent | number:'1.0-0'}}%
+  </ng-container>
   <ng-container *ngIf="loading">
     <mat-spinner style="width: 200px; height: 200px; margin-left: 20px"></mat-spinner>
   </ng-container>

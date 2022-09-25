@@ -24,6 +24,8 @@ export class MainComponent implements OnInit {
     'super-high-energy': {min: 0.8, max: 1},
   }
 
+  public loadingPercent: number = 0;
+
   constructor(private cookie: CookieService, private router: Router, private spotifyService: SpotifyService) {
   }
 
@@ -41,7 +43,36 @@ export class MainComponent implements OnInit {
     return arr.slice(offset, offset + limit);
   }
 
+  public combineDailyMixes() {
+    this.loading = true;
+
+    this.spotifyService.getPlaylistByName('Combined daily mix').pipe(
+      switchMap(res => {
+        if (!res) {
+          return this.spotifyService.saveNewPlaylist('Combined daily mix', '')
+        }
+        return of(res)
+      }),
+      switchMap(playlist => from(this.spotifyService.deleteAllSong(playlist))),
+    ).subscribe(async combinedPlaylist => {
+      const playlists: any = await firstValueFrom(this.spotifyService.getPlaylists());
+
+      for (let playlist of playlists.items) {
+        if (!playlist.name.includes('Daily Mix')) {
+          continue;
+        }
+        const dailyPlaylist = await firstValueFrom(this.spotifyService.getPlaylist(playlist.id));
+        const tracksIds = dailyPlaylist.tracks.items.map((item: any) => item.track.uri)
+
+        await firstValueFrom(this.spotifyService.addToPlaylist(combinedPlaylist.id, tracksIds));
+      }
+
+      this.loading = false;
+    })
+  }
+
   public async generatePlaylist() {
+    this.loadingPercent = 0;
     this.loading = true;
     this.spotifyService.clearCache();
 
@@ -83,7 +114,12 @@ export class MainComponent implements OnInit {
       const currentTracks = new Set<string>();
       let currentNumber = 0;
 
-      while (currentTracks.size <= 400 && currentNumber <= total.total * 0.2) {
+      while (currentTracks.size <= 300 && currentNumber <= total.total * 0.2) {
+        const tracksPercent = currentTracks.size / 300 * 100;
+        const currentNumberPercent = currentNumber / (total.total * 0.2) * 100;
+
+        this.loadingPercent = tracksPercent > currentNumberPercent ? tracksPercent : currentNumberPercent;
+
         const indices = [];
         for (let i = 0; i < currentNumberForSeed; i++) {
           indices.push(this.spotifyService.getRandomNumber(0, total.total - 1));

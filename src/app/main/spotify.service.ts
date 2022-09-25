@@ -154,7 +154,7 @@ export class SpotifyService {
 
     if (recommendations.tracks.length !== 0) {
       const size = recommendations.tracks.length;
-      const numberOfTracksToTake = Math.ceil(size * 0.4);
+      const numberOfTracksToTake = Math.ceil(size * 0.2);
       const randomUris = this.getRandomElements(numberOfTracksToTake, recommendations.tracks);
 
       tracksToAdd.forEach(ut => randomUris.add(ut.uri));
@@ -180,6 +180,7 @@ export class SpotifyService {
 
     return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}}).pipe(
       catchError(err => {
+        console.log('ERROR IS CAUGHT!');
         console.log(err);
         return of({tracks: []});
       })
