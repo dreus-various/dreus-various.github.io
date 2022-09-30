@@ -57,14 +57,33 @@ export class MainComponent implements OnInit {
     ).subscribe(async combinedPlaylist => {
       const playlists: any = await firstValueFrom(this.spotifyService.getPlaylists());
 
+      let tracks: string[] = [];
+
       for (let playlist of playlists.items) {
-        if (!playlist.name.includes('Daily Mix')) {
+        if (playlist.name.includes('Discover Weekly')) {
+          const detailedDiscoverWeeklyPlaylist = await firstValueFrom(this.spotifyService.getPlaylist(playlist.id));
+          const currTracks = detailedDiscoverWeeklyPlaylist.tracks.items.map((item: any) => item.track.uri);
+          tracks.push(...currTracks);
           continue;
         }
-        const dailyPlaylist = await firstValueFrom(this.spotifyService.getPlaylist(playlist.id));
-        const tracksIds = dailyPlaylist.tracks.items.map((item: any) => item.track.uri)
+        if (playlist.name.includes('Daily Mix')) {
+          const dailyPlaylist = await firstValueFrom(this.spotifyService.getPlaylist(playlist.id));
+          const tracksIds = dailyPlaylist.tracks.items.map((item: any) => item.track.uri);
 
-        await firstValueFrom(this.spotifyService.addToPlaylist(combinedPlaylist.id, tracksIds));
+          tracks.push(...tracksIds);
+        }
+      }
+
+      tracks = this.shuffle(tracks);
+
+      let index = 0;
+      const step = 100;
+      let nextBatch = this.getNext(index, step, tracks);
+
+      while (nextBatch.length !== 0) {
+        await firstValueFrom(this.spotifyService.addToPlaylist(combinedPlaylist.id, nextBatch));
+        index += step;
+        nextBatch = this.getNext(index, step, tracks);
       }
 
       this.loading = false;
