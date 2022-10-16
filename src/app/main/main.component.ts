@@ -2,7 +2,7 @@ import {Component, OnInit} from "@angular/core";
 import {CookieService} from "ngx-cookie-service";
 import {Router} from "@angular/router";
 import {SpotifyService} from "./spotify.service";
-import {firstValueFrom, from, map, of, switchMap} from "rxjs";
+import {firstValueFrom, from, of, switchMap} from "rxjs";
 
 @Component({
   selector: 'main',
@@ -10,8 +10,6 @@ import {firstValueFrom, from, map, of, switchMap} from "rxjs";
   styleUrls: ['main.component.css']
 })
 export class MainComponent implements OnInit {
-
-  private playlistName = 'Dreus radio playlist';
 
   public loading: boolean = false;
   energyLevel: EnergyLevelType[] = ['medium-energy'];
@@ -93,80 +91,70 @@ export class MainComponent implements OnInit {
   public async generatePlaylist() {
     this.loadingPercent = 0;
     this.loading = true;
-    this.spotifyService.clearCache();
 
-    this.generatePlaylistForMood(this.energyLevel);
-  }
-
-  private generatePlaylistForMood(energyLevelType: EnergyLevelType[]) {
-    if (energyLevelType.length === 0) {
-      energyLevelType.push('medium-energy');
-    }
-
-    let min = 1;
-    let max = 0;
-    for (let energyLevelTypeElement of energyLevelType) {
-      let energyLevelMapElement = this.energyLevelMap[energyLevelTypeElement];
-
-      if (energyLevelMapElement.min < min) {
-        min = energyLevelMapElement.min;
-      }
-      if (energyLevelMapElement.max > max) {
-        max = energyLevelMapElement.max;
-      }
-    }
-
-    this.spotifyService.getPlaylistByName(this.playlistName).pipe(
+    this.spotifyService.getPlaylistByName('Super random').pipe(
       switchMap(res => {
         if (!res) {
-          return this.spotifyService.saveNewPlaylist(this.playlistName, '')
+          return this.spotifyService.saveNewPlaylist('Super random', '')
         }
-        return of(res);
+        return of(res)
       }),
       switchMap(playlist => from(this.spotifyService.deleteAllSong(playlist))),
-      switchMap((playlist: any) => this.spotifyService.getTotalUserTracks().pipe(
-        map(total => ({total, playlist}))
-      )),
-    ).subscribe(async total => {
-      let currentNumberForSeed = 2;
+    ).subscribe(async newPlaylist => {
+      const allUserTracks: { id: string, uri: string }[] = [];
 
-      const currentTracks = new Set<string>();
-      let currentNumber = 0;
+      let offset = 0;
+      let userTracks = await firstValueFrom(this.spotifyService.getUserTracks(offset, 50));
+      while (userTracks.items.length > 0) {
+        allUserTracks.push(...userTracks.items.map((item: any) => ({id: item.track.id, uri: item.track.uri})))
 
-      while (currentTracks.size <= 300 && currentNumber <= total.total * 0.2) {
-        const tracksPercent = currentTracks.size / 300 * 100;
-        const currentNumberPercent = currentNumber / (total.total * 0.2) * 100;
-
-        this.loadingPercent = tracksPercent > currentNumberPercent ? tracksPercent : currentNumberPercent;
-
-        const indices = [];
-        for (let i = 0; i < currentNumberForSeed; i++) {
-          indices.push(this.spotifyService.getRandomNumber(0, total.total - 1));
-        }
-
-        const uris = await this.spotifyService.processTrack(indices, min, max);
-        uris.forEach(uri => currentTracks.add(uri));
-        currentNumber++;
-        currentNumberForSeed = this.getNextNumberOfTracks(currentNumberForSeed);
+        offset += 50;
+        userTracks = await firstValueFrom(this.spotifyService.getUserTracks(offset, 50));
       }
-      let currentTracksArray = Array.from(currentTracks);
-      currentTracksArray = this.shuffle(currentTracksArray);
 
-      console.log(`Size of tracks to add ${currentTracksArray.length}`)
+      let numberOfTracks = 100;
+      const tracksToAdd = new Set<string>();
+
+      while (numberOfTracks > tracksToAdd.size) {
+        offset = this.spotifyService.getRandomNumber(0, 999);
+
+        const playlists = await firstValueFrom(this.spotifyService.findPlaylistByName("picked just for you", offset, 1));
+        const playlist = playlists.playlists.items[0];
+        const playlistInfo = await firstValueFrom(this.spotifyService.getPlaylist(playlist.id));
+        const playlistTracks: { id: string, uri: string }[] = playlistInfo.tracks.items.map((item: any) => ({id: item.track.id, uri: item.track.uri}));
+        const found = playlistTracks.filter((track) => allUserTracks.find((userTrack) => userTrack.id === track.id && userTrack.uri === track.uri));
+        if (found.length >= 5) {
+          console.log(`${playlist.name} number of liked songs ${found.length}`);
+          const randomTracks = this.spotifyService.getRandomElements(4, playlistTracks);
+          randomTracks.push(found[this.spotifyService.getRandomNumber(0, found.length - 1)]);
+
+          for (let randomTrack of randomTracks) {
+            // let trackInfo = await firstValueFrom(this.spotifyService.getTrackInfo(randomTrack.id));
+            // if (trackInfo && trackInfo.energy >= 0.6) {
+              tracksToAdd.add(randomTrack.uri);
+            // }
+          }
+          const newPercent = tracksToAdd.size / numberOfTracks * 100;
+          this.loadingPercent = newPercent > 100 ? 100 : newPercent;
+          console.log(`current size ${tracksToAdd.size}`);
+        }
+      }
+
+      let tracks = Array.from(tracksToAdd);
+      this.shuffle(tracks);
+      tracks = tracks.slice(0, 100);
+
       let index = 0;
       const step = 100;
-      let nextBatch = this.getNext(index, step, currentTracksArray);
+      let nextBatch = this.getNext(index, step, tracks);
 
       while (nextBatch.length !== 0) {
-        await firstValueFrom(this.spotifyService.addToPlaylist(total.playlist.id, nextBatch));
+        await firstValueFrom(this.spotifyService.addToPlaylist(newPlaylist.id, nextBatch));
         index += step;
-        nextBatch = this.getNext(index, step, currentTracksArray);
+        nextBatch = this.getNext(index, step, tracks);
       }
-
-      // setTimeout(async () => await firstValueFrom(this.spotifyService.addPlayback(total.playlist.uri)), 500);
-
       this.loading = false;
-    })
+    });
   }
 
   private shuffle(array: any[]): any[] {
@@ -177,15 +165,6 @@ export class MainComponent implements OnInit {
     return array;
   }
 
-  private getNextNumberOfTracks(num: number): number {
-    if (num >= 4) {
-      return 2;
-    }
-    if (num < 2) {
-      return 2;
-    }
-    return num + 1;
-  }
 }
 
 type EnergyLevelType =

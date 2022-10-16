@@ -1,6 +1,6 @@
 import {Injectable} from "@angular/core";
 import {CookieService} from "ngx-cookie-service";
-import {catchError, delay, firstValueFrom, map, Observable, of} from "rxjs";
+import {catchError, delay, firstValueFrom, map, Observable, of, tap} from "rxjs";
 import {HttpClient} from "@angular/common/http";
 
 @Injectable({providedIn: 'root'})
@@ -9,6 +9,8 @@ export class SpotifyService {
   private userId: string = '';
 
   private tracksCache: { id: string, uri: string }[] = [];
+
+  private cacheCache = new Map<string, any>();
 
   constructor(private cookieService: CookieService, private http: HttpClient) {
   }
@@ -40,7 +42,9 @@ export class SpotifyService {
     const token = this.cookieService.get('spotify_token');
     const url = `https://api.spotify.com/v1/playlists/${id}`;
 
-    return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}});
+    return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}}).pipe(
+      delay(100)
+    )
   }
 
   public addToPlaylist(id: string, uris: string[]) {
@@ -113,7 +117,9 @@ export class SpotifyService {
     const token = this.cookieService.get('spotify_token');
     const url = `https://api.spotify.com/v1/me/tracks?offset=${offset}&limit=${limit}&market=NL`;
 
-    return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}});
+    return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}}).pipe(
+      delay(100)
+    )
   }
 
   public addPlayback(playlistUri: string): Observable<any> {
@@ -129,51 +135,6 @@ export class SpotifyService {
     }, {headers: {Authorization: 'Bearer ' + token}});
   }
 
-  public async processTrack(trackIndices: number[], energyMin: number = 0, energyMax: number = 100) {
-    const tracksToAdd = [];
-    const userTracks = [];
-
-    let shouldCallRecommendation = false;
-    for (let trackIndex of trackIndices) {
-      const resolved = await this.resolveWithCache(trackIndex);
-
-      const trackInfo = await firstValueFrom(this.getTrackInfo(resolved.id));
-
-      if (trackInfo.energy >= energyMin && trackInfo.energy <= energyMax) {
-        shouldCallRecommendation = true;
-        tracksToAdd.push(resolved);
-      }
-
-      userTracks.push(resolved);
-    }
-    const recommendations = await firstValueFrom(this.getRecommendations(userTracks.map(ut => ut.id), energyMin, energyMax))
-      .catch(err => {
-        console.log(err);
-        return {tracks: []}
-      });
-
-    if (recommendations.tracks.length !== 0) {
-      const size = recommendations.tracks.length;
-      const numberOfTracksToTake = Math.ceil(size * 0.2);
-      const randomUris = this.getRandomElements(numberOfTracksToTake, recommendations.tracks);
-
-      tracksToAdd.forEach(ut => randomUris.add(ut.uri));
-      return randomUris;
-    }
-    return new Set<string>();
-  }
-
-  private async resolveWithCache(trackIndex: number): Promise<{ id: string; uri: string }> {
-    if (!this.tracksCache[trackIndex]) {
-      const userTracks = await firstValueFrom(this.getUserTracks(trackIndex, 50));
-      userTracks.items.forEach((item: any, index: number) => this.tracksCache[trackIndex + index] = {
-        id: item.track.id,
-        uri: item.track.uri
-      });
-    }
-    return this.tracksCache[trackIndex];
-  }
-
   public getRecommendations(track: string[], energyMin: number = 0, energyMax: number = 1): Observable<any> {
     const token = this.cookieService.get('spotify_token');
     const url = `https://api.spotify.com/v1/recommendations/?seed_tracks=${track.join(',')}&market=NL&min_energy=${energyMin}&max_energy=${energyMax}`;
@@ -187,15 +148,36 @@ export class SpotifyService {
     )
   }
 
-  public getTrackInfo(trackId: string): Observable<any> {
+  public getTrackInfo(trackId: string): Observable<any | null> {
+    if (this.cacheCache.has(trackId)) {
+      console.log('got from cache!');
+      return of(this.cacheCache.get(trackId));
+    }
+
     const token = this.cookieService.get('spotify_token');
     const url = `https://api.spotify.com/v1/audio-features/${trackId}`;
 
     return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}})
       .pipe(
+        catchError(err => {
+          console.log('CAUGHT TRACK INFO');
+          console.log(err);
+          return of(null);
+        }),
+        tap(res => this.cacheCache.set(trackId, res)),
         delay(100)
       )
   }
+
+  public findPlaylistByName(playlist: string, offset: number, limit: number): Observable<any> {
+    const token = this.cookieService.get('spotify_token');
+    const url = `https://api.spotify.com/v1/search?q=${playlist}&type=playlist&limit=${limit}&offset=${offset}&market=NL`;
+
+    return this.http.get<any>(url, {headers: {Authorization: 'Bearer ' + token}});
+  }
+
+   // https://api.spotify.com/v1/search?q=picked%20just%20for%20you&type=playlist&market=NL&limit=0&offset=50
+   // https://api.spotify.com/v1/search?q=picked%20just%20for%20you&type=playlist&market=NL&limit=50&offset=0
 
   public getRandomNumber(min: number, max: number): number {
     min = Math.ceil(min);
@@ -203,13 +185,16 @@ export class SpotifyService {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
-  public getRandomElements(num: number, arr: any[]): Set<string> {
-    const set = new Set<any>();
-    while (set.size != num) {
+  public getRandomElements(num: number, arr: {uri: string}[]): any[] {
+    const result: {uri: string}[] = [];
+    while (result.length != num) {
       const nextRandom = this.getRandomNumber(0, arr.length - 1);
-      const nextElement = arr[nextRandom].uri;
-      set.add(nextElement);
+      const nextElement = arr[nextRandom];
+      const found = result.find((item) => item.uri === nextElement.uri);
+      if (!found) {
+        result.push(nextElement);
+      }
     }
-    return set;
+    return result;
   }
 }
