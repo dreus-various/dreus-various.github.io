@@ -1,12 +1,11 @@
 <div style="padding: 40px">
   <span>Energy</span>
   <div style="width: 300px; margin-top: 20px; margin-bottom: 20px">
-    <mat-button-toggle-group [(ngModel)]="energyLevel" name="energyLevel" aria-label="Energy level" multiple>
-      <mat-button-toggle value="super-low-energy">Super calm</mat-button-toggle>
-      <mat-button-toggle value="low-energy">Calm</mat-button-toggle>
-      <mat-button-toggle value="medium-energy">Medium energy</mat-button-toggle>
-      <mat-button-toggle value="high-energy">Energetic</mat-button-toggle>
-      <mat-button-toggle value="super-high-energy">Super energetic</mat-button-toggle>
+    <mat-button-toggle-group [(ngModel)]="filter" name="energyLevel" aria-label="Energy level">
+      <mat-button-toggle value="energetic">Energetic</mat-button-toggle>
+      <mat-button-toggle value="calm">Calm</mat-button-toggle>
+      <mat-button-toggle value="happy">Happy</mat-button-toggle>
+      <mat-button-toggle value="sad">Sad</mat-button-toggle>
     </mat-button-toggle-group>
   </div>
   <button style="margin-left: 20px" color="primary" mat-stroked-button (click)="generatePlaylist()">Generate your playlist!</button>

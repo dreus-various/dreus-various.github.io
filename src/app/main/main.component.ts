@@ -12,14 +12,13 @@ import {firstValueFrom, from, of, switchMap} from "rxjs";
 export class MainComponent implements OnInit {
 
   public loading: boolean = false;
-  energyLevel: EnergyLevelType[] = ['medium-energy'];
+  public filter: FilterType | null = null;
 
-  private energyLevelMap = {
-    'super-low-energy': {min: 0, max: 0.2},
-    'low-energy': {min: 0.2, max: 0.4},
-    'medium-energy': {min: 0.4, max: 0.6},
-    'high-energy': {min: 0.6, max: 0.8},
-    'super-high-energy': {min: 0.8, max: 1},
+  private filterActions = {
+    'energetic': (trackInfo: {energy: number, valence: number}): boolean => trackInfo.energy >= 0.5,
+    'calm': (trackInfo: {energy: number, valence: number}): boolean => trackInfo.energy <= 0.5,
+    'happy': (trackInfo: {energy: number, valence: number}): boolean => trackInfo.valence >= 0.5,
+    'sad': (trackInfo: {energy: number, valence: number}): boolean => trackInfo.valence <= 0.5,
   }
 
   public loadingPercent: number = 0;
@@ -89,6 +88,7 @@ export class MainComponent implements OnInit {
   }
 
   public async generatePlaylist() {
+    console.log(this.filter);
     this.loadingPercent = 0;
     this.loading = true;
 
@@ -119,8 +119,14 @@ export class MainComponent implements OnInit {
         offset = this.spotifyService.getRandomNumber(0, 999);
 
         const playlists = await firstValueFrom(this.spotifyService.findPlaylistByName("picked just for you", offset, 1));
+        if (!playlists) {
+          continue;
+        }
         const playlist = playlists.playlists.items[0];
         const playlistInfo = await firstValueFrom(this.spotifyService.getPlaylist(playlist.id));
+        if (!playlistInfo) {
+          continue;
+        }
         const playlistTracks: { id: string, uri: string }[] = playlistInfo.tracks.items.map((item: any) => ({id: item.track.id, uri: item.track.uri}));
         const found = playlistTracks.filter((track) => allUserTracks.find((userTrack) => userTrack.id === track.id && userTrack.uri === track.uri));
         if (found.length >= 5) {
@@ -129,10 +135,13 @@ export class MainComponent implements OnInit {
           randomTracks.push(found[this.spotifyService.getRandomNumber(0, found.length - 1)]);
 
           for (let randomTrack of randomTracks) {
-            // let trackInfo = await firstValueFrom(this.spotifyService.getTrackInfo(randomTrack.id));
-            // if (trackInfo && trackInfo.energy >= 0.6) {
-              tracksToAdd.add(randomTrack.uri);
-            // }
+            if (this.filter) {
+              let trackInfo = await firstValueFrom(this.spotifyService.getTrackInfo(randomTrack.id));
+              if (!trackInfo || !this.filterActions[this.filter](trackInfo)) {
+                continue;
+              }
+            }
+            tracksToAdd.add(randomTrack.uri);
           }
           const newPercent = tracksToAdd.size / numberOfTracks * 100;
           this.loadingPercent = newPercent > 100 ? 100 : newPercent;
@@ -167,9 +176,4 @@ export class MainComponent implements OnInit {
 
 }
 
-type EnergyLevelType =
-  'super-low-energy'
-  | 'low-energy'
-  | 'medium-energy'
-  | 'high-energy'
-  | 'super-high-energy';
+type FilterType = 'energetic' | 'calm' | 'happy' | 'sad';

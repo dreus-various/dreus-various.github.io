@@ -1,6 +1,6 @@
 import {HttpEvent, HttpHandler, HttpInterceptor, HttpRequest} from "@angular/common/http";
 import {Injectable} from "@angular/core";
-import {catchError, EMPTY, Observable} from "rxjs";
+import {catchError, Observable, throwError} from "rxjs";
 import {Router} from "@angular/router";
 import {CookieService} from "ngx-cookie-service";
 
@@ -17,7 +17,7 @@ export class ErrorInterceptor implements HttpInterceptor{
           this.cookie.delete('spotify_token');
           this.router.navigate(['/']);
         }
-        return EMPTY;
+        return throwError(err);
       })
     )
   }

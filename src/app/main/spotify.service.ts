@@ -38,12 +38,16 @@ export class SpotifyService {
     })
   }
 
-  public getPlaylist(id: string): Observable<any> {
+  public getPlaylist(id: string): Observable<any | null> {
     const token = this.cookieService.get('spotify_token');
     const url = `https://api.spotify.com/v1/playlists/${id}`;
 
     return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}}).pipe(
-      delay(100)
+      catchError(err => {
+        console.log('getPlaylist error');
+        return of(null);
+      }),
+      delay(10),
     )
   }
 
@@ -135,19 +139,6 @@ export class SpotifyService {
     }, {headers: {Authorization: 'Bearer ' + token}});
   }
 
-  public getRecommendations(track: string[], energyMin: number = 0, energyMax: number = 1): Observable<any> {
-    const token = this.cookieService.get('spotify_token');
-    const url = `https://api.spotify.com/v1/recommendations/?seed_tracks=${track.join(',')}&market=NL&min_energy=${energyMin}&max_energy=${energyMax}`;
-
-    return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}}).pipe(
-      catchError(err => {
-        console.log('ERROR IS CAUGHT!');
-        console.log(err);
-        return of({tracks: []});
-      })
-    )
-  }
-
   public getTrackInfo(trackId: string): Observable<any | null> {
     if (this.cacheCache.has(trackId)) {
       console.log('got from cache!');
@@ -160,24 +151,30 @@ export class SpotifyService {
     return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}})
       .pipe(
         catchError(err => {
-          console.log('CAUGHT TRACK INFO');
-          console.log(err);
+          console.log('getTrackInfo error');
           return of(null);
         }),
-        tap(res => this.cacheCache.set(trackId, res)),
-        delay(100)
+        tap(res => {
+          if (res) {
+            this.cacheCache.set(trackId, res);
+          }
+        }),
+        delay(10)
       )
   }
 
-  public findPlaylistByName(playlist: string, offset: number, limit: number): Observable<any> {
+  public findPlaylistByName(playlist: string, offset: number, limit: number): Observable<any | null> {
     const token = this.cookieService.get('spotify_token');
     const url = `https://api.spotify.com/v1/search?q=${playlist}&type=playlist&limit=${limit}&offset=${offset}&market=NL`;
 
-    return this.http.get<any>(url, {headers: {Authorization: 'Bearer ' + token}});
+  return this.http.get<any | null>(url, {headers: {Authorization: 'Bearer ' + token}})
+      .pipe(
+        catchError(_ => {
+          console.log('findPlaylistByName error');
+          return of(null);
+        })
+      )
   }
-
-   // https://api.spotify.com/v1/search?q=picked%20just%20for%20you&type=playlist&market=NL&limit=0&offset=50
-   // https://api.spotify.com/v1/search?q=picked%20just%20for%20you&type=playlist&market=NL&limit=50&offset=0
 
   public getRandomNumber(min: number, max: number): number {
     min = Math.ceil(min);
