@@ -11,6 +11,7 @@ export class SpotifyService {
   private tracksCache: { id: string, uri: string }[] = [];
 
   private cacheCache = new Map<string, any>();
+  private artistCache = new Map<string, any>();
 
   constructor(private cookieService: CookieService, private http: HttpClient) {
   }
@@ -19,46 +20,92 @@ export class SpotifyService {
     this.tracksCache = [];
   }
 
-  public getPlaylistByName(name: string): Observable<any | null> {
-    return this.getPlaylists().pipe(
-      map(res => res.items),
-      map((items: any[]) => items.filter(item => item.name === name)),
-      map(items => items.length > 0 ? items[0] : null)
-    )
+  public async getPlaylistByName(name: string): Promise<any | null> {
+    let offset = 0;
+    let playlists = await this.getPlaylists(offset);
+
+    let found = playlists.items.find((item: { name: string }) => item.name === name) ?? null;
+
+    while (!found && playlists.items.length !== 0) {
+      offset += 50;
+      playlists = await this.getPlaylists(offset);
+      found = playlists.items.find((item: { name: string }) => item.name === name) ?? null;
+    }
+    return found;
   }
 
-  public getPlaylists(): Observable<any> {
+  // public getPlaylistByName(name: string): Observable<any | null> {
+  //   return this.getPlaylists().pipe(
+  //     map(res => res.items),
+  //     map((items: any[]) => items.filter(item => item.name === name)),
+  //     map(items => items.length > 0 ? items[0] : null)
+  //   )
+  // }
+
+  public getPlaylists(offset: number): Promise<any> {
     const token = this.cookieService.get('spotify_token');
-    const url = `https://api.spotify.com/v1/me/playlists`;
+    const url = `https://api.spotify.com/v1/me/playlists?offset=${offset}&limit=50`;
 
-    return this.http.get(url, {
-      headers: {
-        Authorization: 'Bearer ' + token
-      }
-    })
+    return firstValueFrom(
+      this.http.get(url, {
+        headers: {
+          Authorization: 'Bearer ' + token
+        }
+      })
+    );
   }
 
-  public getPlaylist(id: string): Observable<any | null> {
+  // public getPlaylists(offset: number): Observable<any> {
+  //   const token = this.cookieService.get('spotify_token');
+  //   const url = `https://api.spotify.com/v1/me/playlists&offset=${offset}`;
+  //
+  //   return this.http.get(url, {
+  //     headers: {
+  //       Authorization: 'Bearer ' + token
+  //     }
+  //   })
+  // }
+
+  public getPlaylist(id: string): Promise<any | null> {
     const token = this.cookieService.get('spotify_token');
     const url = `https://api.spotify.com/v1/playlists/${id}`;
 
-    return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}}).pipe(
-      catchError(err => {
-        console.log('getPlaylist error');
-        return of(null);
-      }),
-      delay(10),
+    return firstValueFrom(
+      this.http.get(url, {headers: {Authorization: 'Bearer ' + token}}).pipe(
+        catchError(err => {
+          console.log('getPlaylist error');
+          return of(null);
+        }),
+        delay(10),
+      )
     )
   }
 
-  public addToPlaylist(id: string, uris: string[]) {
+  public getPlaylistTracks(id: string, offset: number): Promise<any | null> {
+    const token = this.cookieService.get('spotify_token');
+    const url = `https://api.spotify.com/v1/playlists/${id}/tracks?offset=${offset}&limit=100`;
+
+    return firstValueFrom(
+      this.http.get(url, {headers: {Authorization: 'Bearer ' + token}}).pipe(
+        catchError(err => {
+          console.log('getPlaylistTracks error');
+          return of(null);
+        }),
+        delay(10),
+      )
+    );
+  }
+
+  public addToPlaylist(id: string, uris: string[]): Promise<any> {
     const token = this.cookieService.get('spotify_token');
     const url = `https://api.spotify.com/v1/playlists/${id}/tracks`;
 
-    return this.http.post(url, {
-      uris,
-      position: 0
-    }, {headers: {Authorization: 'Bearer ' + token}});
+    return firstValueFrom(
+      this.http.post(url, {
+        uris,
+        position: 0
+      }, {headers: {Authorization: 'Bearer ' + token}})
+    )
   }
 
   public getUserInfo(): Observable<any> {
@@ -75,24 +122,22 @@ export class SpotifyService {
     return this.userId;
   }
 
-  public saveNewPlaylist(name: string, description: string): Observable<string> {
+  public saveNewPlaylist(name: string, description: string): Promise<any> {
     const token = this.cookieService.get('spotify_token');
     const url = `https://api.spotify.com/v1/users/${this.userId}/playlists`;
 
-    return this.http.post(url, {
+    return firstValueFrom(this.http.post(url, {
       'public': false,
       name,
       description
-    }, {headers: {Authorization: 'Bearer ' + token}}).pipe(
-      map((res: any) => res.id)
-    )
+    }, {headers: {Authorization: 'Bearer ' + token}}))
   }
 
   public async deleteAllSong(playlist: any): Promise<any> {
-    let playlistInfo: any = await firstValueFrom(this.getPlaylist(playlist.id));
+    let playlistInfo: any = await this.getPlaylist(playlist.id);
     while (playlistInfo.tracks.items.length > 0) {
       await firstValueFrom(this.deleteTracksFromPlaylist(playlist.id, playlistInfo.tracks.items.map((item: any) => ({uri: item.track.uri}))));
-      playlistInfo = await firstValueFrom(this.getPlaylist(playlist.id));
+      playlistInfo = await this.getPlaylist(playlist.id);
     }
     return playlist;
   }
@@ -159,15 +204,44 @@ export class SpotifyService {
             this.cacheCache.set(trackId, res);
           }
         }),
-        delay(10)
+        delay(100)
       )
+  }
+
+  public getArtistInfo(artistId: string): Observable<any> {
+    if (this.artistCache.has(artistId)) {
+      const cached = this.artistCache.get(artistId);
+      console.log('artist from cache ' + cached.name);
+      return of(cached);
+    }
+
+    const token = this.cookieService.get('spotify_token');
+    const url = `https://api.spotify.com/v1/artists/${artistId}`;
+
+    return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}}).pipe(
+      catchError(err => {
+        console.log('getTrackInfo error');
+        return of(null);
+      }),
+      tap(res => {
+        this.artistCache.set(artistId, res);
+      }),
+      delay(100)
+    );
+  }
+
+  public getTopArtists(): Observable<any> {
+    const token = this.cookieService.get('spotify_token');
+    const url = `https://api.spotify.com/v1/me/top/artists?time_range=medium_term&limit=50`;
+
+    return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}});
   }
 
   public findPlaylistByName(playlist: string, offset: number, limit: number): Observable<any | null> {
     const token = this.cookieService.get('spotify_token');
     const url = `https://api.spotify.com/v1/search?q=${playlist}&type=playlist&limit=${limit}&offset=${offset}&market=NL`;
 
-  return this.http.get<any | null>(url, {headers: {Authorization: 'Bearer ' + token}})
+    return this.http.get<any | null>(url, {headers: {Authorization: 'Bearer ' + token}})
       .pipe(
         catchError(_ => {
           console.log('findPlaylistByName error');
@@ -182,8 +256,8 @@ export class SpotifyService {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
-  public getRandomElements(num: number, arr: {uri: string}[]): any[] {
-    const result: {uri: string}[] = [];
+  public getRandomElements(num: number, arr: { uri: string }[]): { uri: string }[] {
+    const result: { uri: string }[] = [];
     while (result.length != num) {
       const nextRandom = this.getRandomNumber(0, arr.length - 1);
       const nextElement = arr[nextRandom];
