@@ -11,15 +11,15 @@ import {SpotifyService} from "./spotify.service";
 export class MainComponent implements OnInit {
 
   public loading: boolean = false;
-  public filter: FilterType | null = null;
 
   public listOfTracks: any[] = [];
 
   private filterActions = {
-    'energetic': (trackInfo: { energy: number, valence: number }): boolean => trackInfo.energy >= 0.5,
-    'calm': (trackInfo: { energy: number, valence: number }): boolean => trackInfo.energy <= 0.5,
-    'happy': (trackInfo: { energy: number, valence: number }): boolean => trackInfo.valence >= 0.5,
-    'sad': (trackInfo: { energy: number, valence: number }): boolean => trackInfo.valence <= 0.5,
+    'energetic': (trackInfo: { energy: number }): boolean => trackInfo.energy >= 0.5,
+    'calm': (trackInfo: { energy: number }): boolean => trackInfo.energy <= 0.5,
+    'happy': (trackInfo: { valence: number }): boolean => trackInfo.valence >= 0.5,
+    'sad': (trackInfo: { valence: number }): boolean => trackInfo.valence <= 0.5,
+    'popular': (trackInfo: { popularity: number }): boolean => trackInfo.popularity >= 50,
   }
 
   public loadingPercent: number = 0;
@@ -86,10 +86,6 @@ export class MainComponent implements OnInit {
 
   public async generatePlaylist() {
     this.loadingPercent = 0;
-    this.loading = true;
-
-    await this.combineDailyMixes();
-
     this.loading = true;
 
     let randomRadios = await this.spotifyService.getPlaylistByName('Super random');
@@ -164,6 +160,54 @@ export class MainComponent implements OnInit {
     this.loading = false;
   }
 
+  public async getAudioFeatures(mode: ModeType) {
+    this.loading = true;
+
+    let resultPlaylist = await this.spotifyService.getPlaylistByName(`Super random ${mode}`);
+    if (!resultPlaylist) {
+      resultPlaylist = await this.spotifyService.saveNewPlaylist(`Super random ${mode}`, '');
+    }
+    await this.spotifyService.deleteAllSong(resultPlaylist);
+
+    const superRandom = await this.spotifyService.getPlaylistByName(`Super random`);
+
+    const trackInfos: any[] = [];
+
+    let offset = 0;
+
+    let tracks = await this.spotifyService.getPlaylistTracks(superRandom.id, offset);
+
+    while (tracks.items.length !== 0) {
+      const infos = await this.spotifyService.getTrackInfo(tracks.items.map((item: { track: { id: string } }) => item.track.id));
+      infos['audio_features'].forEach((info: any) => {
+        const found = tracks.items.find((item: any) => item.track.id === info.id)
+        if (found) {
+          trackInfos.push({
+            popularity: found.track.popularity,
+            ...info
+          })
+        }
+      });
+
+      offset += 100;
+      tracks = await this.spotifyService.getPlaylistTracks(superRandom.id, offset);
+    }
+
+    const tracksToSave = this.shuffle(trackInfos.filter(this.filterActions[mode]).map(info => info.uri));
+
+    let index = 0;
+    const step = 100;
+    let nextBatch = this.getNext(index, step, tracksToSave);
+
+    while (nextBatch.length !== 0) {
+      await this.spotifyService.addToPlaylist(resultPlaylist.id, nextBatch);
+      index += step;
+      nextBatch = this.getNext(index, step, tracksToSave);
+    }
+
+    this.loading = false;
+  }
+
   private shuffle(array: any[]): any[] {
     for (let i = array.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -174,4 +218,4 @@ export class MainComponent implements OnInit {
 
 }
 
-type FilterType = 'energetic' | 'calm' | 'happy' | 'sad';
+type ModeType = 'energetic' | 'calm' | 'happy' | 'sad' | 'popular';

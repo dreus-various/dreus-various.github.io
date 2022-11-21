@@ -184,28 +184,20 @@ export class SpotifyService {
     }, {headers: {Authorization: 'Bearer ' + token}});
   }
 
-  public getTrackInfo(trackId: string): Observable<any | null> {
-    if (this.cacheCache.has(trackId)) {
-      console.log('got from cache!');
-      return of(this.cacheCache.get(trackId));
-    }
-
+  public getTrackInfo(trackIds: string[]): Promise<any | null> {
     const token = this.cookieService.get('spotify_token');
-    const url = `https://api.spotify.com/v1/audio-features/${trackId}`;
+    const url = `https://api.spotify.com/v1/audio-features?ids=${trackIds.join(',')}`;
 
-    return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}})
-      .pipe(
-        catchError(err => {
-          console.log('getTrackInfo error');
-          return of(null);
-        }),
-        tap(res => {
-          if (res) {
-            this.cacheCache.set(trackId, res);
-          }
-        }),
-        delay(100)
-      )
+    return firstValueFrom(
+      this.http.get(url, {headers: {Authorization: 'Bearer ' + token}})
+        .pipe(
+          catchError(err => {
+            console.log('getTrackInfo error');
+            return of([]);
+          }),
+          delay(50)
+        )
+    );
   }
 
   public getArtistInfo(artistId: string): Observable<any> {

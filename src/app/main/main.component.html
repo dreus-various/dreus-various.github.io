@@ -1,15 +1,13 @@
 <div style="padding: 40px">
-  <span>Energy</span>
-  <div style="width: 300px; margin-top: 20px; margin-bottom: 20px">
-    <mat-button-toggle-group [(ngModel)]="filter" name="energyLevel" aria-label="Energy level">
-      <mat-button-toggle value="energetic">Energetic</mat-button-toggle>
-      <mat-button-toggle value="calm">Calm</mat-button-toggle>
-      <mat-button-toggle value="happy">Happy</mat-button-toggle>
-      <mat-button-toggle value="sad">Sad</mat-button-toggle>
-    </mat-button-toggle-group>
+  <div style="display: flex; width: 400px; flex-wrap: wrap">
+    <button style="margin-left: 20px; margin-top: 15px;" color="primary" mat-stroked-button (click)="combineDailyMixes()">Combine your daily mixes into one!</button>
+    <button style="margin-left: 20px; margin-top: 15px;" color="primary" mat-stroked-button (click)="generatePlaylist()">Generate your playlist!</button>
+    <button style="margin-left: 20px; margin-top: 15px" color="primary" mat-stroked-button (click)="getAudioFeatures('energetic')">Generate your upbeat playlist!</button>
+    <button style="margin-left: 20px; margin-top: 15px" color="primary" mat-stroked-button (click)="getAudioFeatures('happy')">Generate your happy playlist!</button>
+    <button style="margin-left: 20px; margin-top: 15px" color="primary" mat-stroked-button (click)="getAudioFeatures('calm')">Generate your calm playlist!</button>
+    <button style="margin-left: 20px; margin-top: 15px" color="primary" mat-stroked-button (click)="getAudioFeatures('sad')">Generate your sad playlist!</button>
+    <button style="margin-left: 20px; margin-top: 15px" color="primary" mat-stroked-button (click)="getAudioFeatures('popular')">Generate your popular playlist!</button>
   </div>
-  <button style="margin-left: 20px" color="primary" mat-stroked-button (click)="generatePlaylist()">Generate your playlist!</button>
-  <button style="margin-left: 20px" color="primary" mat-stroked-button (click)="combineDailyMixes()">Combine your daily mixes into one!</button>
   <ng-container *ngIf="loading">
     {{loadingPercent | number:'1.0-0'}}%
   </ng-container>
