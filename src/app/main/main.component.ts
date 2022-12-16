@@ -125,7 +125,7 @@ export class MainComponent implements OnInit {
       console.log(currentPlaylist.name);
       const tracks: { uri: string }[] = currentPlaylist.tracks.items.map((item: any) => ({uri: item.track.uri}));
 
-      const randomElements = this.spotifyService.getRandomElements(9, tracks);
+      const randomElements = this.spotifyService.getRandomElements(4, tracks);
       randomElements.forEach(randomElement => tracksSet.add(randomElement.uri));
       tracksSet.add(tracks[0].uri)
 
