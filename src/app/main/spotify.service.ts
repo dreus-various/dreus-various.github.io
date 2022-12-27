@@ -2,6 +2,7 @@ import {Injectable} from "@angular/core";
 import {CookieService} from "ngx-cookie-service";
 import {catchError, delay, firstValueFrom, map, Observable, of, tap} from "rxjs";
 import {HttpClient} from "@angular/common/http";
+import type {SearchResponse} from "../model/spotify";
 
 @Injectable({providedIn: 'root'})
 export class SpotifyService {
@@ -229,17 +230,15 @@ export class SpotifyService {
     return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}});
   }
 
-  public findPlaylistByName(playlist: string, offset: number, limit: number): Observable<any | null> {
+  public findPlaylistsByQuery(playlist: string, offset: number, limit: number): Promise<SearchResponse> {
     const token = this.cookieService.get('spotify_token');
     const url = `https://api.spotify.com/v1/search?q=${playlist}&type=playlist&limit=${limit}&offset=${offset}&market=NL`;
 
-    return this.http.get<any | null>(url, {headers: {Authorization: 'Bearer ' + token}})
-      .pipe(
-        catchError(_ => {
-          console.log('findPlaylistByName error');
-          return of(null);
-        })
+    return firstValueFrom(
+      this.http.get<SearchResponse>(url, {headers: {Authorization: 'Bearer ' + token}}).pipe(
+        delay(50)
       )
+    );
   }
 
   public getRandomNumber(min: number, max: number): number {

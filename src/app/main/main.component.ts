@@ -3,6 +3,8 @@ import {CookieService} from "ngx-cookie-service";
 import {Router} from "@angular/router";
 import {SpotifyService} from "./spotify.service";
 
+import tokensMap from '../../assets/tokens_map.json';
+
 @Component({
   selector: 'main',
   templateUrl: './main.component.html',
@@ -28,6 +30,7 @@ export class MainComponent implements OnInit {
   }
 
   public ngOnInit() {
+    console.log('Version 0.1');
     let spotifyToken = this.cookie.get('spotify_token');
     if (!spotifyToken) {
       this.router.navigate(['/']);
@@ -35,6 +38,104 @@ export class MainComponent implements OnInit {
     this.spotifyService.getUserInfo().subscribe(res => {
       this.spotifyService.setUserId(res.id)
     });
+  }
+
+  public async test() {
+    let array: {token: string, hits: number, searchNumberMin: number, searchNumberMax: number}[] = [];
+
+    for (let tokensMapKey in tokensMap) {
+      // @ts-ignore
+      array.push({token: tokensMapKey, hits: tokensMap[tokensMapKey], searchNumberMin: 0, searchNumberMax: 0})
+    }
+
+    array = array
+      .sort((a, b) => b.hits - a.hits);
+
+    const sum: number = array
+      .reduce((prev: number, curr: {hits: number}) => {
+        prev += curr.hits;
+        return prev;
+      }, 0);
+
+    let currentIndex = 0;
+
+    array = array
+      .map(val => {
+        const newObj = {
+          ...val,
+          searchNumberMin: currentIndex + 1,
+          searchNumberMax: currentIndex + val.hits
+        };
+        currentIndex += val.hits;
+        return newObj;
+      });
+
+    for (let i = 0; i < 10; i++) {
+      const randomValue = this.spotifyService.getRandomNumber(1, sum + 1);
+      const randomToken = array.find(val => randomValue >= val.searchNumberMin && randomValue <= val.searchNumberMax);
+
+      console.log(randomToken);
+    }
+  }
+
+  public async justRadios() {
+    this.loadingPercent = 0;
+    this.loading = true;
+
+    let randomRadios = await this.spotifyService.getPlaylistByName('Just radios');
+    if (!randomRadios) {
+      randomRadios = await this.spotifyService.saveNewPlaylist('Just radios', '');
+    }
+    await this.spotifyService.deleteAllSong(randomRadios);
+
+    let offset = 0;
+
+    let playlists = await this.spotifyService.getPlaylists(offset);
+    let radioPlaylists: any[] = [];
+    while (playlists.items.length !== 0) {
+      for (let playlist of playlists.items) {
+        if (playlist.name.includes('Radio')) {
+          radioPlaylists.push(playlist);
+        }
+      }
+      offset += 50;
+      playlists = await this.spotifyService.getPlaylists(offset);
+    }
+
+    this.shuffle(radioPlaylists);
+    console.log('Radio playlists length');
+    console.log(radioPlaylists.length);
+
+    const tracksSet = new Set<any>();
+
+    while (tracksSet.size < 2000) {
+      let randomNumber = this.spotifyService.getRandomNumber(0, radioPlaylists.length - 1);
+      const currentPlaylist = await this.spotifyService.getPlaylist(radioPlaylists[randomNumber].id);
+      if (!currentPlaylist) {
+        continue;
+      }
+      console.log(`using: ${currentPlaylist.name}`);
+
+      const tracks: { uri: string }[] = currentPlaylist.tracks.items.map((item: any) => ({uri: item.track.uri}));
+      tracks.forEach(track => tracksSet.add(track.uri));
+
+      let percentValue = tracksSet.size / 2000 * 100;
+      this.loadingPercent = percentValue >= 100 ? 100 : percentValue;
+    }
+
+    const tracks = this.shuffle(Array.from(tracksSet));
+
+    let index = 0;
+    const step = 100;
+    let nextBatch = this.getNext(index, step, tracks);
+
+    while (nextBatch.length !== 0) {
+      await this.spotifyService.addToPlaylist(randomRadios.id, nextBatch);
+      index += step;
+      nextBatch = this.getNext(index, step, tracks);
+    }
+
+    this.loading = false;
   }
 
   private getNext(offset: number, limit: number, arr: string[]): string[] {
