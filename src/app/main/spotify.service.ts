@@ -1,6 +1,6 @@
 import {Injectable} from "@angular/core";
 import {CookieService} from "ngx-cookie-service";
-import {catchError, delay, firstValueFrom, map, Observable, of, tap} from "rxjs";
+import {catchError, delay, firstValueFrom, Observable, of, tap} from "rxjs";
 import {HttpClient} from "@angular/common/http";
 import type {SearchResponse} from "../model/spotify";
 
@@ -82,6 +82,22 @@ export class SpotifyService {
     )
   }
 
+  public async getAllPlaylistTracks(id: string): Promise<string[]> {
+    let result: any[] = [];
+
+    let offset = 0;
+    let tracks = await this.getPlaylistTracks(id, offset);
+
+    while (tracks.items.length !== 0) {
+      const uris = tracks.items.map((item: {track: {uri: string}}) => item.track.uri)
+      result = result.concat(uris);
+
+      offset += 100;
+      tracks = await this.getPlaylistTracks(id, offset);
+    }
+    return result;
+  }
+
   public getPlaylistTracks(id: string, offset: number): Promise<any | null> {
     const token = this.cookieService.get('spotify_token');
     const url = `https://api.spotify.com/v1/playlists/${id}/tracks?offset=${offset}&limit=100`;
@@ -157,19 +173,15 @@ export class SpotifyService {
     })
   }
 
-  public getTotalUserTracks(): Observable<number> {
-    return this.getUserTracks(0, 1).pipe(
-      map(res => res.total)
-    )
-  }
-
-  public getUserTracks(offset: number, limit: number): Observable<any> {
+  public getUserTracks(offset: number, limit: number): Promise<any> {
     const token = this.cookieService.get('spotify_token');
     const url = `https://api.spotify.com/v1/me/tracks?offset=${offset}&limit=${limit}&market=NL`;
 
-    return this.http.get(url, {headers: {Authorization: 'Bearer ' + token}}).pipe(
-      delay(100)
-    )
+    return firstValueFrom(
+      this.http.get(url, {headers: {Authorization: 'Bearer ' + token}}).pipe(
+        delay(50)
+      )
+    );
   }
 
   public addPlayback(playlistUri: string): Observable<any> {

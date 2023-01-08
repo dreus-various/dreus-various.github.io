@@ -30,7 +30,7 @@ export class MainComponent implements OnInit {
   }
 
   public ngOnInit() {
-    console.log('Version 0.1');
+    console.log('Version 0.2 disliked songs');
     let spotifyToken = this.cookie.get('spotify_token');
     if (!spotifyToken) {
       this.router.navigate(['/']);
@@ -199,6 +199,9 @@ export class MainComponent implements OnInit {
 
     let playlists = await this.spotifyService.getPlaylists(offset);
 
+    let dislikePlaylist: any;
+    let combinedMixes: any;
+
     let radioPlaylists: any[] = [];
 
     while (playlists.items.length !== 0) {
@@ -206,10 +209,26 @@ export class MainComponent implements OnInit {
         if (playlist.name.includes('Radio')) {
           radioPlaylists.push(playlist);
         }
+        if (playlist.name === 'Disliked Songs') {
+          dislikePlaylist = playlist;
+        }
+        if (playlist.name === 'Combined daily mix') {
+          combinedMixes = playlist;
+        }
       }
 
       offset += 50;
       playlists = await this.spotifyService.getPlaylists(offset);
+    }
+
+    const tracksSet = new Set<any>();
+
+    const dislikedTracks = dislikePlaylist ? await this.spotifyService.getAllPlaylistTracks(dislikePlaylist.id) : [];
+
+    if (combinedMixes) {
+      let combinedMixesTracks = await this.spotifyService.getAllPlaylistTracks(combinedMixes.id);
+      combinedMixesTracks.filter(item => !dislikedTracks.some(dislikedTrack => dislikedTrack === item))
+        .forEach(item => tracksSet.add(item));
     }
 
     this.shuffle(radioPlaylists);
@@ -217,33 +236,20 @@ export class MainComponent implements OnInit {
     console.log('Radio playlists length');
     console.log(radioPlaylists.length);
 
-    const tracksSet = new Set<any>();
-
-    while (tracksSet.size < 200) {
+    while (tracksSet.size < 500) {
       let randomNumber = this.spotifyService.getRandomNumber(0, radioPlaylists.length - 1);
       const currentPlaylist = await this.spotifyService.getPlaylist(radioPlaylists[randomNumber].id);
       console.log('using:');
       console.log(currentPlaylist.name);
-      const tracks: { uri: string }[] = currentPlaylist.tracks.items.map((item: any) => ({uri: item.track.uri}));
+      const tracks: { uri: string }[] = currentPlaylist.tracks.items.map((item: any) => ({uri: item.track.uri}))
+        .filter((track: {uri: string}) => !dislikedTracks.some(dislikedTrack => dislikedTrack === track.uri))
 
       const randomElements = this.spotifyService.getRandomElements(4, tracks);
       randomElements.forEach(randomElement => tracksSet.add(randomElement.uri));
-      tracksSet.add(tracks[0].uri)
+      tracksSet.add(tracks[0].uri);
 
-      let percentValue = tracksSet.size / 200 * 100;
+      let percentValue = tracksSet.size / 500 * 100;
       this.loadingPercent = percentValue >= 100 ? 100 : percentValue;
-    }
-
-    const combinedDailyMix = await this.spotifyService.getPlaylistByName("Combined daily mix");
-    if (combinedDailyMix) {
-      offset = 0;
-      let tracks = await this.spotifyService.getPlaylistTracks(combinedDailyMix.id, offset);
-
-      while (tracks.items.length !== 0) {
-        tracks.items.forEach((item: { track: { uri: string } }) => tracksSet.add(item.track.uri));
-        offset += 50;
-        tracks = await this.spotifyService.getPlaylistTracks(combinedDailyMix.id, offset);
-      }
     }
 
     const tracks = this.shuffle(Array.from(tracksSet));
