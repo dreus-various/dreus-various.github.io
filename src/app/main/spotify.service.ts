@@ -2,7 +2,7 @@ import {Injectable} from "@angular/core";
 import {CookieService} from "ngx-cookie-service";
 import {catchError, delay, firstValueFrom, Observable, of, tap} from "rxjs";
 import {HttpClient} from "@angular/common/http";
-import type {SearchResponse} from "../model/spotify";
+import type {SearchResponse, UserTrackResponse} from "../model/spotify";
 
 @Injectable({providedIn: 'root'})
 export class SpotifyService {
@@ -89,7 +89,7 @@ export class SpotifyService {
     let tracks = await this.getPlaylistTracks(id, offset);
 
     while (tracks.items.length !== 0) {
-      const uris = tracks.items.map((item: {track: {uri: string}}) => item.track.uri)
+      const uris = tracks.items.map((item: { track: { uri: string } }) => item.track.uri)
       result = result.concat(uris);
 
       offset += 100;
@@ -150,7 +150,7 @@ export class SpotifyService {
     }, {headers: {Authorization: 'Bearer ' + token}}))
   }
 
-  public async deleteAllSong(playlist: any): Promise<any> {
+  public async deleteAllSong(playlist: {id: string}): Promise<any> {
     let playlistInfo: any = await this.getPlaylist(playlist.id);
     while (playlistInfo.tracks.items.length > 0) {
       await firstValueFrom(this.deleteTracksFromPlaylist(playlist.id, playlistInfo.tracks.items.map((item: any) => ({uri: item.track.uri}))));
@@ -173,12 +173,26 @@ export class SpotifyService {
     })
   }
 
-  public getUserTracks(offset: number, limit: number): Promise<any> {
+  public async getAllUserTrackUris(): Promise<string[]> {
+    let result: string[] = [];
+    let offset = 0;
+
+    let currentTracks = await this.getUserTracks(offset);
+    while (currentTracks.items.length !== 0) {
+      result = result.concat(currentTracks.items.map(item => item.track.uri));
+      offset += 50;
+      currentTracks = await this.getUserTracks(offset);
+    }
+
+    return result;
+  }
+
+  public getUserTracks(offset: number): Promise<UserTrackResponse> {
     const token = this.cookieService.get('spotify_token');
-    const url = `https://api.spotify.com/v1/me/tracks?offset=${offset}&limit=${limit}&market=NL`;
+    const url = `https://api.spotify.com/v1/me/tracks?offset=${offset}&limit=50&market=NL`;
 
     return firstValueFrom(
-      this.http.get(url, {headers: {Authorization: 'Bearer ' + token}}).pipe(
+      this.http.get<UserTrackResponse>(url, {headers: {Authorization: 'Bearer ' + token}}).pipe(
         delay(50)
       )
     );

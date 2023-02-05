@@ -1,3 +1,5 @@
+import type {Track} from "./track";
+
 export type SearchPlaylistItems = {
   id: string,
   name: string,
@@ -16,4 +18,13 @@ export type SearchPlaylists = {
 
 export type SearchResponse = {
   playlists: SearchPlaylists,
+}
+
+export type UserTrackResponse = {
+  href: string,
+  items: { added_at: string, track: Track }[],
+  limit: number,
+  next: string,
+  offset: number,
+  total: number
 }
