@@ -1,13 +1,6 @@
 <div style="padding: 40px">
   <div style="display: flex; width: 250px; flex-wrap: wrap">
-    <button style="margin-left: 20px; margin-top: 15px;" color="primary" mat-stroked-button (click)="combineDailyMixes()">Combine your daily mixes into one!</button>
-    <button style="margin-left: 20px; margin-top: 15px;" color="primary" mat-stroked-button (click)="generatePlaylist()">Generate your playlist!</button>
-    <button style="margin-left: 20px; margin-top: 15px" color="primary" mat-stroked-button (click)="likedSongs()">Update liked songs</button>
-    <button style="margin-left: 20px; margin-top: 15px" color="primary" mat-stroked-button (click)="getAudioFeatures('energetic')">Generate your upbeat playlist!</button>
-    <button style="margin-left: 20px; margin-top: 15px" color="primary" mat-stroked-button (click)="getAudioFeatures('happy')">Generate your happy playlist!</button>
-    <button style="margin-left: 20px; margin-top: 15px" color="primary" mat-stroked-button (click)="getAudioFeatures('calm')">Generate your calm playlist!</button>
-    <button style="margin-left: 20px; margin-top: 15px" color="primary" mat-stroked-button (click)="getAudioFeatures('sad')">Generate your sad playlist!</button>
-    <button style="margin-left: 20px; margin-top: 15px" color="primary" mat-stroked-button (click)="getAudioFeatures('popular')">Generate your popular playlist!</button>
+    <button style="margin-left: 20px; margin-top: 15px;" color="primary" mat-stroked-button (click)="mergeMixes()">Merge all mixes!</button>
   </div>
   <ng-container *ngIf="loading">
     {{loadingPercent | number:'1.0-0'}}%

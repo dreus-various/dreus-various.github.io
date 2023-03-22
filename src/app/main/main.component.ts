@@ -38,6 +38,53 @@ export class MainComponent implements OnInit {
     });
   }
 
+  public async mergeMixes() {
+    this.loadingPercent = 0;
+    this.loading = true;
+
+    let mergedMixesPlaylist = await this.spotifyService.getPlaylistByName("Merged mixes");
+    if (!mergedMixesPlaylist) {
+      mergedMixesPlaylist = await this.spotifyService.saveNewPlaylist('Merged mixes', '');
+    }
+    await this.spotifyService.deleteAllSong(mergedMixesPlaylist);
+
+    const tracksSet = new Set<string>();
+
+    const userTracks = await this.spotifyService.getAllUserTrackUris();
+    userTracks.forEach(track => tracksSet.add(track));
+
+    let offset = 0;
+
+    let playlists = await this.spotifyService.getPlaylists(offset);
+    let mixes: any[] = [];
+
+    while (playlists.items.length !== 0) {
+      for (let playlist of playlists.items) {
+        if (playlist.name.includes('Mix') || playlist.name.includes('Discover')) {
+          mixes.push(playlist);
+        }
+      }
+      offset += 50;
+      playlists = await this.spotifyService.getPlaylists(offset);
+    }
+
+    for (let mix of mixes) {
+      const detailedPlaylist = await this.spotifyService.getPlaylist(mix.id);
+      if (!detailedPlaylist) {
+        continue;
+      }
+      console.log(`Processing ${detailedPlaylist.name}`);
+
+      detailedPlaylist.tracks.items.map((item: any) => item.track.uri)
+        .forEach((uri: string) => tracksSet.add(uri));
+    }
+
+    const tracks: string[] = this.shuffle(Array.from(tracksSet));
+
+    await this.saveTracksToPlaylist(tracks, mergedMixesPlaylist);
+    this.loading = false;
+  }
+
   public async justRadios() {
     this.loadingPercent = 0;
     this.loading = true;
