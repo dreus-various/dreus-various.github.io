@@ -1,6 +1,6 @@
 <div style="padding: 40px">
   <div style="display: flex; width: 250px; flex-wrap: wrap">
-    <button style="margin-left: 20px; margin-top: 15px;" color="primary" mat-stroked-button (click)="mergeMixes()">Merge all mixes!</button>
+    <button style="margin-left: 20px; margin-top: 15px;" color="primary" mat-stroked-button (click)="combineDailyMixes()">Merge all mixes!</button>
   </div>
   <ng-container *ngIf="loading">
     {{loadingPercent | number:'1.0-0'}}%

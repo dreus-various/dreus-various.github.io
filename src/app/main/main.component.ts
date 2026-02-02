@@ -50,38 +50,40 @@ export class MainComponent implements OnInit {
 
     const tracksSet = new Set<string>();
 
-    const userTracks = await this.spotifyService.getAllUserTrackUris();
-    userTracks.forEach(track => tracksSet.add(track));
-
     let offset = 0;
-
     let playlists = await this.spotifyService.getPlaylists(offset);
-    let mixes: any[] = [];
-
-    while (playlists.items.length !== 0) {
-      for (let playlist of playlists.items) {
-        if (playlist.name.includes('Mix') || playlist.name.includes('Discover')) {
-          mixes.push(playlist);
-        }
-      }
-      offset += 50;
-      playlists = await this.spotifyService.getPlaylists(offset);
-    }
-
-    for (let mix of mixes) {
-      const detailedPlaylist = await this.spotifyService.getPlaylist(mix.id);
-      if (!detailedPlaylist) {
-        continue;
-      }
-      console.log(`Processing ${detailedPlaylist.name}`);
-
-      detailedPlaylist.tracks.items.map((item: any) => item.track.uri)
-        .forEach((uri: string) => tracksSet.add(uri));
-    }
-
-    const tracks: string[] = this.shuffle(Array.from(tracksSet));
-
-    await this.saveTracksToPlaylist(tracks, mergedMixesPlaylist);
+    console.log(playlists);
+    // userTracks.forEach(track => tracksSet.add(track));
+    //
+    // let offset = 0;
+    //
+    // let playlists = await this.spotifyService.getPlaylists(offset);
+    // let mixes: any[] = [];
+    //
+    // while (playlists.items.length !== 0) {
+    //   for (let playlist of playlists.items) {
+    //     if (playlist.name.includes('Mix') || playlist.name.includes('Discover')) {
+    //       mixes.push(playlist);
+    //     }
+    //   }
+    //   offset += 50;
+    //   playlists = await this.spotifyService.getPlaylists(offset);
+    // }
+    //
+    // for (let mix of mixes) {
+    //   const detailedPlaylist = await this.spotifyService.getPlaylist(mix.id);
+    //   if (!detailedPlaylist) {
+    //     continue;
+    //   }
+    //   console.log(`Processing ${detailedPlaylist.name}`);
+    //
+    //   detailedPlaylist.tracks.items.map((item: any) => item.track.uri)
+    //     .forEach((uri: string) => tracksSet.add(uri));
+    // }
+    //
+    // const tracks: string[] = this.shuffle(Array.from(tracksSet));
+    //
+    // await this.saveTracksToPlaylist(tracks, mergedMixesPlaylist);
     this.loading = false;
   }
 
@@ -176,7 +178,7 @@ export class MainComponent implements OnInit {
 
     while (playlists.items.length !== 0) {
       for (let playlistItem of playlists.items) {
-        if (playlistItem.name.includes('Daily Mix') || playlistItem.name.includes('Discover Weekly')) {
+        if (playlistItem.name.includes('Daily Mix')) {
           const dailyPlaylist = await this.spotifyService.getPlaylist(playlistItem.id);
           const tracksIds = dailyPlaylist.tracks.items.map((item: any) => item.track.uri);
 
@@ -187,7 +189,10 @@ export class MainComponent implements OnInit {
       offset += 50;
       playlists = await this.spotifyService.getPlaylists(offset);
     }
+    let userTracks = await this.spotifyService.getAllUserTrackUris();
+    userTracks = this.shuffle(userTracks);
 
+    tracks = [...tracks, ...userTracks.slice(0, 50)];
     tracks = this.shuffle(tracks);
 
     let index = 0;
